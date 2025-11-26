@@ -1,0 +1,19 @@
+# Android Automation Framework Requirements
+
+# Appium Python client
+Appium-Python-Client>=3.1.0
+
+# Selenium WebDriver (required by Appium)
+selenium>=4.15.0
+
+# YAML configuration parsing
+PyYAML>=6.0.1
+
+# Testing framework
+pytest>=7.4.3
+pytest-html>=4.1.1  # Optional: for HTML test reports
+pytest-xdist>=3.5.0  # Optional: for parallel test execution
+
+# Logging and utilities
+colorlog>=6.8.0  # Optional: for colored console output
+

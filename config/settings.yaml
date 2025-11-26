@@ -1,0 +1,37 @@
+# Android Automation Framework Configuration
+
+appium:
+  server_url: "http://localhost:4723"
+  command_timeout: 300
+  new_command_timeout: 300
+
+android:
+  platform_name: "Android"
+  platform_version: "16"  # Adjust to match your emulator (detected: Android 16)
+  device_name: "Android Emulator"
+  automation_name: "UiAutomator2"
+  
+  # App configuration - UPDATE THESE FOR YOUR APP
+  app_package: "dk.doubble.dating"
+  app_activity: ".MainActivity"
+  
+  # IMPORTANT: Preserve login state between runs
+  no_reset: true
+  full_reset: false
+  
+  # Additional capabilities
+  auto_grant_permissions: true
+  skip_unlock: true
+  uiautomator2_server_launch_timeout: 20000
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_dir: "logs"
+  log_file: "automation.log"
+  console_output: true
+
+timeouts:
+  implicit_wait: 10
+  element_wait: 20
+  page_load: 30
+
