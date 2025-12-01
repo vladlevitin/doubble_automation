@@ -73,6 +73,12 @@ def main():
         logger.info("Waiting for app to load...")
         time.sleep(5)
         
+        # Handle any initial pop-ups that might appear when app launches
+        logger.info("=" * 60)
+        logger.info("Checking for initial pop-ups after app launch...")
+        logger.info("=" * 60)
+        swipe_page.handle_popups()
+        
         # Detect current screen
         logger.info("=" * 60)
         logger.info("Detecting current screen...")
@@ -124,20 +130,35 @@ def main():
         logger.info("Clicking like button and handling pop-ups...")
         logger.info("=" * 60)
         
+        # Handle any pop-ups before starting interactions
+        swipe_page.handle_popups()
+        
         # Click like button multiple times (simulating user interactions)
         for i in range(3):
             logger.info(f"Like button click #{i+1}...")
+            
+            # Check for pop-ups before each click
+            swipe_page.handle_popups()
+            
             if swipe_page.click_like_button():
                 logger.info(f"Like button clicked successfully (#{i+1})")
                 time.sleep(2)  # Wait between clicks
+                
+                # Check for pop-ups after each click
+                swipe_page.handle_popups()
             else:
                 logger.warning(f"Could not click like button (#{i+1})")
+                # Still check for pop-ups even if like button wasn't found
+                swipe_page.handle_popups()
                 break
         
         # Perform swipe gestures as well
         logger.info("=" * 60)
         logger.info("Performing swipe gestures...")
         logger.info("=" * 60)
+        
+        # Handle pop-ups before swiping
+        swipe_page.handle_popups()
         
         logger.info("Swiping LEFT (swipe left to pass)...")
         page.swipe_left()
@@ -153,6 +174,10 @@ def main():
         page.swipe_up()
         time.sleep(2)
         swipe_page.handle_popups()  # Check for pop-ups after swipe
+        
+        # Final pop-up check
+        logger.info("Performing final pop-up check...")
+        swipe_page.handle_popups()
         
         logger.info("=" * 60)
         logger.info("Swipe test completed successfully!")

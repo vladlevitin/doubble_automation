@@ -1,6 +1,7 @@
 """Driver factory for creating and managing Appium WebDriver instances."""
 
 import os
+import socket
 import yaml
 from pathlib import Path
 from typing import Optional, Any
@@ -26,6 +27,41 @@ class DriverFactory:
         return cls._config
     
     @classmethod
+    def check_appium_server(cls) -> bool:
+        """
+        Check if Appium server is reachable before attempting to create driver.
+        
+        Returns:
+            bool: True if server is reachable, False otherwise
+        """
+        try:
+            config = cls.load_config()
+            appium_config = config["appium"]
+            server_url = appium_config["server_url"]
+            
+            # Extract host and port from URL (e.g., "http://localhost:4723")
+            if "://" in server_url:
+                host_port = server_url.split("://")[1]
+                if ":" in host_port:
+                    host, port = host_port.split(":")
+                    port = int(port)
+                else:
+                    host = host_port
+                    port = 4723  # Default Appium port
+            else:
+                host = "localhost"
+                port = 4723
+            
+            # Quick socket check
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)  # 2 second timeout
+            result = sock.connect_ex((host, port))
+            sock.close()
+            return result == 0
+        except Exception:
+            return False
+    
+    @classmethod
     def create_driver(cls) -> Any:
         """
         Create and return an Appium WebDriver instance.
@@ -34,10 +70,19 @@ class DriverFactory:
             webdriver.WebDriver: Configured Appium driver instance
             
         Raises:
-            Exception: If driver creation fails
+            Exception: If driver creation fails or Appium server is not running
         """
         if cls._driver is not None:
             return cls._driver
+        
+        # Check if Appium server is running before attempting to create driver
+        if not cls.check_appium_server():
+            raise Exception(
+                "Appium server is not running!\n"
+                "Please start the Appium server before running this script.\n"
+                "You can use 'run_auto_swipe.bat' which starts Appium automatically,\n"
+                "or start Appium manually with: appium"
+            )
         
         config = cls.load_config()
         appium_config = config["appium"]
@@ -51,8 +96,11 @@ class DriverFactory:
         options.automation_name = android_config["automation_name"]
         
         # App configuration
-        options.app_package = android_config["app_package"]
-        options.app_activity = android_config["app_activity"]
+        # IMPORTANT: We don't set app_package or app_activity here to avoid auto-launch errors
+        # Appium will try to launch the app automatically if these are set, which fails if activity is wrong
+        # Instead, we'll connect to the device first, then launch the app using activate_app() or ADB
+        # This allows the driver to be created even if activity name is incorrect
+        # The app will be launched separately in the test scripts using activate_app() or ADB commands
         
         # IMPORTANT: Preserve login state
         options.no_reset = android_config["no_reset"]

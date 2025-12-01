@@ -122,7 +122,7 @@ class BasePage:
         element = self.find_element(locator_type, locator_value, timeout)
         element.click()
         logger.info(f"Tapped on element: {locator_type}={locator_value}")
-        time.sleep(0.5)  # Brief pause after action
+        time.sleep(0.1)  # ULTRA-FAST: Reduced from 0.5s to 0.1s
     
     def tap_element(self, element: WebElement):
         """
@@ -201,6 +201,49 @@ class BasePage:
         except (TimeoutException, NoSuchElementException):
             return False
     
+    def is_element_present_silent(
+        self,
+        locator_type: str,
+        locator_value: str,
+        timeout: Optional[int] = None
+    ) -> bool:
+        """
+        Silently check if an element is present (no error logging).
+        
+        Args:
+            locator_type: Type of locator
+            locator_value: Value of the locator
+            timeout: Optional timeout in seconds (defaults to 1 second for quick silent check)
+            
+        Returns:
+            bool: True if element is present, False otherwise
+        """
+        timeout = timeout or 1
+        try:
+            wait = WebDriverWait(self.driver, timeout)
+            
+            # Map string locator types to AppiumBy constants
+            locator_map = {
+                "id": AppiumBy.ID,
+                "xpath": AppiumBy.XPATH,
+                "class_name": AppiumBy.CLASS_NAME,
+                "accessibility_id": AppiumBy.ACCESSIBILITY_ID,
+                "android_uiautomator": AppiumBy.ANDROID_UIAUTOMATOR,
+                "tag_name": AppiumBy.TAG_NAME,
+            }
+            
+            by = locator_map.get(locator_type.lower())
+            if by is None:
+                return False
+            
+            # Use expected_conditions without logging
+            element = wait.until(EC.presence_of_element_located((by, locator_value)))
+            return element is not None
+        except (TimeoutException, NoSuchElementException):
+            return False
+        except Exception:
+            return False
+    
     def swipe(
         self,
         start_x: int,
@@ -220,8 +263,8 @@ class BasePage:
             duration: Duration of swipe in milliseconds
         """
         self.driver.swipe(start_x, start_y, end_x, end_y, duration)
-        logger.info(f"Swipe from ({start_x}, {start_y}) to ({end_x}, {end_y})")
-        time.sleep(0.5)
+        # Removed logging for speed - only log on errors
+        time.sleep(0.02)  # ULTRA-FAST: Minimal wait (20ms) - just enough for gesture to register
     
     def swipe_up(self, duration: int = 1000):
         """Swipe up on the screen."""
@@ -247,13 +290,13 @@ class BasePage:
         start_y = size["height"] // 2
         self.swipe(start_x, start_y, end_x, start_y, duration)
     
-    def swipe_right(self, duration: int = 1000):
-        """Swipe right on the screen."""
+    def swipe_right(self, duration: int = 200):
+        """Swipe right on the screen (like gesture)."""
         size = self.driver.get_window_size()
         start_x = int(size["width"] * 0.2)
         end_x = int(size["width"] * 0.8)
         start_y = size["height"] // 2
-        self.swipe(start_x, start_y, end_x, start_y, duration)
+        self.swipe(start_x, start_y, end_x, start_y, duration)  # Ultra-fast swipe: 200ms
     
     def wait_for_element(
         self,
@@ -307,4 +350,76 @@ class BasePage:
         """
         self.driver.save_screenshot(filename)
         logger.info(f"Screenshot saved: {filename}")
+    
+    def save_page_source(self, action_name: str, output_dir: str = "page_sources", send_to_ai: bool = False):
+        """
+        Save the current page source (UI hierarchy) with action name and timestamp.
+        Optionally sends to AI for button analysis.
+        
+        Args:
+            action_name: Name of the action being performed (e.g., "like_button_click")
+            output_dir: Directory to save page sources (default: "page_sources")
+            send_to_ai: Whether to send to AI for button analysis (default: False for speed)
+            
+        Returns:
+            str: Path to saved file
+        """
+        from pathlib import Path
+        from datetime import datetime
+        
+        # Create output directory if it doesn't exist
+        output_path = Path(output_dir)
+        output_path.mkdir(exist_ok=True)
+        
+        # Generate filename with timestamp and action name
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+        filename = f"{timestamp}_{action_name}.xml"
+        filepath = output_path / filename
+        
+        try:
+            # Get page source (UI hierarchy XML)
+            page_source = self.driver.page_source
+            
+            # Save to file
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(page_source)
+            
+            logger.debug(f"Page source saved: {filepath}")
+            
+            # Send to AI for analysis if requested (OPTIMIZED: disabled by default for speed)
+            if send_to_ai:
+                try:
+                    import sys
+                    from pathlib import Path as PathLib
+                    project_root = PathLib(__file__).parent.parent
+                    sys.path.insert(0, str(project_root))
+                    
+                    from ai_button_analyzer import send_xml_to_ai
+                    
+                    # Determine button type from action name
+                    button_type = "button"
+                    if "like" in action_name.lower():
+                        button_type = "like button"
+                    elif "swipe" in action_name.lower():
+                        button_type = "swipe button"
+                    elif "popup" in action_name.lower() or "close" in action_name.lower():
+                        button_type = "close button"
+                    
+                    logger.info(f"[AI] Sending page source to AI for {button_type} analysis...")
+                    ai_result = send_xml_to_ai(page_source, f"analyze {button_type} from {action_name}")
+                    
+                    if ai_result.get('buttons'):
+                        logger.info(f"[AI] Found {len(ai_result['buttons'])} buttons in page source")
+                        # Log top button details
+                        top_button = ai_result['buttons'][0]
+                        logger.info(f"[AI] Top button - Resource ID: {top_button.get('resource_id', 'N/A')}")
+                        logger.info(f"[AI] Top button - Content Desc: {top_button.get('content_desc', 'N/A')}")
+                        logger.info(f"[AI] Top button - Text: {top_button.get('text', 'N/A')}")
+                except Exception as e:
+                    logger.warning(f"[AI] Could not send to AI: {e}")
+            
+            return str(filepath)
+        except Exception as e:
+            logger.warning(f"Could not save page source: {e}")
+            return None
 

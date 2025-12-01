@@ -38,49 +38,77 @@ class DoubbleScreenDetector(BasePage):
     def detect_current_screen(self) -> str:
         """
         Detect which screen is currently displayed.
+        IMPROVED: Prioritizes swipe screen detection with multiple indicators.
         
         Returns:
             str: Screen name ('home', 'swipe', 'login', 'unknown')
         """
-        logger.info("Detecting current screen...")
-        
-        # Check for home screen
-        for locator_type, locator_value in self.HOME_SCREEN_INDICATORS:
-            if self.is_element_present(locator_type, locator_value, timeout=2):
-                logger.info(f"Detected: HOME screen (found: {locator_type}={locator_value})")
-                return "home"
-        
-        # Check for swipe screen
-        for locator_type, locator_value in self.SWIPE_SCREEN_INDICATORS:
-            if self.is_element_present(locator_type, locator_value, timeout=2):
-                logger.info(f"Detected: SWIPE screen (found: {locator_type}={locator_value})")
-                return "swipe"
-        
-        # Check for login screen
-        for locator_type, locator_value in self.LOGIN_SCREEN_INDICATORS:
-            if self.is_element_present(locator_type, locator_value, timeout=2):
-                logger.info(f"Detected: LOGIN screen (found: {locator_type}={locator_value})")
-                return "login"
-        
-        # Try to get UI hierarchy for analysis
         try:
-            source = self.driver.page_source
-            if source:
-                # Analyze page source for clues
-                source_lower = source.lower()
-                
-                if any(keyword in source_lower for keyword in ['home', 'main', 'dashboard']):
-                    logger.info("Detected: HOME screen (from page source analysis)")
-                    return "home"
-                elif any(keyword in source_lower for keyword in ['swipe', 'card', 'profile']):
-                    logger.info("Detected: SWIPE screen (from page source analysis)")
+            # CRITICAL: Check for swipe screen FIRST (most important to detect correctly)
+            # Strategy 1: Check like button (heart button on swipe screen)
+            try:
+                if self.is_element_present_silent("xpath", "//*[contains(@content-desc, 'Like') or contains(@content-desc, 'like')]", timeout=0.1):
+                    logger.info("Detected: SWIPE screen (found like button)")
                     return "swipe"
-                elif any(keyword in source_lower for keyword in ['login', 'sign in', 'username', 'password']):
-                    logger.info("Detected: LOGIN screen (from page source analysis)")
-                    return "login"
+            except:
+                pass
+            
+            # Strategy 2: Check for swipe/discover/explore elements
+            swipe_text_indicators = [
+                "//*[contains(@content-desc, 'Swipe') or contains(@content-desc, 'swipe')]",
+                "//*[contains(@content-desc, 'Discover') or contains(@content-desc, 'discover')]",
+                "//*[contains(@content-desc, 'Explore') or contains(@content-desc, 'explore')]",
+                "//*[contains(@text, 'Swipe') or contains(@text, 'swipe')]",
+            ]
+            
+            for xpath in swipe_text_indicators[:2]:  # Check first 2
+                try:
+                    if self.is_element_present_silent("xpath", xpath, timeout=0.05):
+                        logger.info(f"Detected: SWIPE screen (found swipe/discover/explore element)")
+                        return "swipe"
+                except:
+                    continue
+            
+            # Strategy 3: Check for card stack (common on swipe screens)
+            try:
+                if self.is_element_present_silent("xpath", "//*[@class='androidx.cardview.widget.CardView']", timeout=0.05):
+                    logger.info("Detected: SWIPE screen (found card view)")
+                    return "swipe"
+            except:
+                pass
+            
+            # Strategy 4: Check swipe screen indicators from list
+            for locator_type, locator_value in self.SWIPE_SCREEN_INDICATORS[:2]:  # Check first 2
+                try:
+                    if self.is_element_present_silent(locator_type, locator_value, timeout=0.05):
+                        logger.info(f"Detected: SWIPE screen (found: {locator_type}={locator_value})")
+                        return "swipe"
+                except:
+                    continue
+            
+            # Only check for home/login if swipe not found
+            # Check for home screen - only check top 1 indicator with reduced timeout
+            for locator_type, locator_value in self.HOME_SCREEN_INDICATORS[:1]:
+                try:
+                    if self.is_element_present_silent(locator_type, locator_value, timeout=0.1):
+                        logger.info(f"Detected: HOME screen (found: {locator_type}={locator_value})")
+                        return "home"
+                except Exception:
+                    continue
+            
+            # Check for login screen - only check top 1 indicator with reduced timeout
+            for locator_type, locator_value in self.LOGIN_SCREEN_INDICATORS[:1]:
+                try:
+                    if self.is_element_present_silent(locator_type, locator_value, timeout=0.1):
+                        logger.info(f"Detected: LOGIN screen (found: {locator_type}={locator_value})")
+                        return "login"
+                except Exception:
+                    continue
         except Exception as e:
-            logger.warning(f"Could not analyze page source: {e}")
+            logger.warning(f"Error during screen detection: {e}")
+            return "unknown"
         
+        # Skip page source check - too slow, just return unknown
         logger.warning("Could not detect screen - returning 'unknown'")
         return "unknown"
     

@@ -207,13 +207,20 @@ if ($appiumRunning) {
 
 # Run the test
 Write-Host ""
-Write-Host "[5/5] Running Doubble app test..." -ForegroundColor Yellow
+Write-Host "[5/5] Running Doubble app automation..." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "The script will:" -ForegroundColor Cyan
+Write-Host "  - Launch Doubble app" -ForegroundColor White
+Write-Host "  - Navigate to swipe screen" -ForegroundColor White
+Write-Host "  - Continuously swipe profiles and press like button" -ForegroundColor White
+Write-Host "  - Handle pop-ups automatically" -ForegroundColor White
+Write-Host "  - Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
 try {
-    # Run the Python test script
-    python test_doubble_swipe.py
+    # Run the automated Python script
+    python auto_doubble_swipe.py
     $testExitCode = $LASTEXITCODE
     
     Write-Host ""
